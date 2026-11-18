@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <title>Clock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="shell">
+  <header><div><div class="eyebrow">TIME TRACKER</div><h1>Clock</h1></div><button id="adminBtn" class="icon-btn" aria-label="Admin access">🔒</button></header>
+
+  <section class="hero card">
+    <div id="status" class="status">CLOCKED OUT</div>
+    <div class="label">THIS PAY WEEK</div>
+    <div id="weekHours" class="hours">0h 00m</div>
+    <div id="weekPay" class="money">$0.00</div>
+    <div id="rate" class="muted">$25.00/hr</div>
+    <div id="liveBlock" class="live hidden"><span id="liveTime">00:00:00</span><span id="livePay">$0.00 today</span></div>
+    <button id="clockBtn" class="primary hidden">Clock In</button>
+    <div id="publicHint" class="hint">Public view · unlock to manage</div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>Recent activity</h2><a href="reports.html">Reports →</a></div>
+    <div id="recent" class="list"><div class="empty">No shifts yet.</div></div>
+  </section>
+</main>
+
+<dialog id="loginDialog">
+  <form id="loginForm" method="dialog" class="dialog-card">
+    <h2>Admin access</h2><p>Unlock clock controls for this browser session.</p>
+    <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+    <div id="loginError" class="error"></div>
+    <div class="actions"><button value="cancel" class="secondary">Cancel</button><button id="loginSubmit" value="default" class="primary">Unlock</button></div>
+  </form>
+</dialog>
+
+<script src="config.js"></script><script src="app.js"></script>
+</body></html>
