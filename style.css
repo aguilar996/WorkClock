@@ -140,3 +140,62 @@
   display: flex;
   gap: 16px;
 }
+
+
+/* ========================================
+   MOBILE / SAFARI BUTTON FIX
+   ======================================== */
+
+button {
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--text);
+}
+
+/* Report period buttons */
+
+.tabs button {
+  -webkit-appearance: none;
+  appearance: none;
+
+  background: transparent;
+  color: var(--muted);
+
+  border: none;
+  border-radius: 11px;
+}
+
+.tabs button.active {
+  background: #2b323a;
+  color: #ffffff;
+}
+
+/* iPhone / light mode */
+
+@media (prefers-color-scheme: light) {
+
+  .tabs button {
+    background: transparent;
+    color: #68727d;
+  }
+
+  .tabs button.active {
+    background: #26313b;
+    color: #ffffff !important;
+  }
+
+  .icon-btn {
+    background: #e9ecef;
+    color: #111519;
+  }
+
+  .secondary {
+    background: #e9ecef;
+    color: #111519;
+  }
+
+  .primary {
+    background: var(--accent);
+    color: #ffffff;
+  }
+}
