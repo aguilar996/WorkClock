@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+  <meta
+    name="theme-color"
+    content="#0b0d10">
+
+  <title>Clock · Manage shifts</title>
+
+  <link
+    rel="stylesheet"
+    href="style.css">
+</head>
+
+<body>
+
+<main class="shell">
+
+  <header>
+    <a
+      class="back"
+      href="index.html">
+      ← Clock
+    </a>
+
+    <h1>Shifts</h1>
+
+    <button
+      id="addShiftBtn"
+      type="button"
+      class="icon-btn"
+      aria-label="Add shift">
+      ＋
+    </button>
+  </header>
+
+
+  <section class="card manage-intro">
+
+    <div class="label">
+      SHIFT MANAGEMENT
+    </div>
+
+    <h2>
+      Add or correct your records
+    </h2>
+
+    <p class="muted">
+      Changes are protected by your existing admin session.
+      Each shift keeps its own hourly rate.
+    </p>
+
+    <button
+      id="unlockBtn"
+      type="button"
+      class="primary hidden">
+      Return to Clock and unlock
+    </button>
+
+  </section>
+
+
+  <section class="section">
+
+    <div class="section-head">
+      <h2>All shifts</h2>
+
+      <span
+        id="shiftTotal"
+        class="muted">
+        0 records
+      </span>
+    </div>
+
+    <div
+      id="shiftList"
+      class="shift-editor-list">
+
+      <div class="empty">
+        Loading shifts...
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+
+<dialog id="shiftDialog">
+
+  <form
+    id="shiftForm"
+    class="dialog-card">
+
+    <h2 id="shiftDialogTitle">
+      Add shift
+    </h2>
+
+    <p>
+      The rate applies only to this shift.
+    </p>
+
+
+    <input
+      id="shiftId"
+      type="hidden">
+
+
+    <div class="form-grid">
+
+      <label>
+        Date
+
+        <input
+          id="shiftDate"
+          type="date"
+          required>
+      </label>
+
+
+      <label>
+        Clock in
+
+        <input
+          id="shiftStart"
+          type="time"
+          required>
+      </label>
+
+
+      <label>
+        Clock out
+
+        <input
+          id="shiftEnd"
+          type="time"
+          required>
+      </label>
+
+
+      <label>
+        Hourly rate
+
+        <input
+          id="shiftRate"
+          type="number"
+          min="0.01"
+          max="10000"
+          step="0.01"
+          inputmode="decimal"
+          required>
+      </label>
+
+    </div>
+
+
+    <div
+      id="shiftError"
+      class="error">
+    </div>
+
+
+    <div class="dialog-footer">
+
+      <button
+        id="deleteShiftBtn"
+        type="button"
+        class="danger hidden">
+        Delete
+      </button>
+
+      <div class="actions">
+
+        <button
+          id="cancelShiftBtn"
+          type="button"
+          class="secondary">
+          Cancel
+        </button>
+
+        <button
+          id="saveShiftBtn"
+          type="submit"
+          class="primary">
+          Save
+        </button>
+
+      </div>
+
+    </div>
+
+  </form>
+
+</dialog>
+
+
+<script src="config.js"></script>
+<script src="shifts.js"></script>
+
+</body>
+</html>
