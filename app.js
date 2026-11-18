@@ -456,7 +456,14 @@ $("#adminBtn").addEventListener(
   }
 );
 
-
+$("#loginCancel").addEventListener(
+  "click",
+  () => {
+    $("#password").value = "";
+    $("#loginError").textContent = "";
+    $("#loginDialog").close();
+  }
+);
 // ========================================
 // LOGIN
 // ========================================
