@@ -1,4 +1,3 @@
-// Replace this after your Cloudflare Worker is deployed.
 window.CLOCK_CONFIG = {
   API_URL: "https://clock-api.aguilar996.workers.dev",
   currency: "CAD",
