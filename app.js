@@ -1,12 +1,617 @@
-const C=window.CLOCK_CONFIG, API=C.API_URL.replace(/\/$/,'');
-const $=s=>document.querySelector(s);let data={activeShift:null,weekHours:0,weekEarningsCents:0,currentRateCents:2500,recent:[]};
-const token=()=>sessionStorage.getItem('clockAdminToken');const money=c=>new Intl.NumberFormat(C.locale,{style:'currency',currency:C.currency}).format((c||0)/100);
-const duration=ms=>{const m=Math.max(0,Math.floor(ms/60000));return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`};
-async function api(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};if(token())h.Authorization=`Bearer ${token()}`;const r=await fetch(API+path,{...opt,headers:h});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||`Request failed (${r.status})`);return r.json()}
-async function refresh(){try{data=await api('/api/status');render()}catch(e){$('.status').textContent='API NOT CONNECTED';$('.recent').innerHTML=`<div class="empty">Connect config.js to your Cloudflare Worker to load shared data.</div>`}}
-function render(){const active=data.activeShift;$('.status').textContent=active?'CLOCKED IN':'CLOCKED OUT';$('.weekHours').textContent=duration((data.weekMinutes||0)*60000+(active?Date.now()-new Date(active.clock_in).getTime():0));let live=active?Math.round((Date.now()-new Date(active.clock_in).getTime())/3600000*active.hourly_rate_cents):0;$('.weekPay').textContent=money((data.weekEarningsCents||0)+live);$('.rate').textContent=`${money(data.currentRateCents)}/hr`;$('.clockBtn').classList.toggle('hidden',!token());$('.publicHint').classList.toggle('hidden',!!token());$('.clockBtn').textContent=active?'Clock Out':'Clock In';$('.live').classList.toggle('hidden',!active);$('.recent').innerHTML=(data.recent||[]).length?(data.recent||[]).map(s=>`<div class="row"><div><strong>${new Date(s.clock_in).toLocaleDateString(C.locale,{weekday:'short',month:'short',day:'numeric',timeZone:C.timeZone})}</strong><small>${new Date(s.clock_in).toLocaleTimeString(C.locale,{hour:'numeric',minute:'2-digit',timeZone:C.timeZone})} → ${s.clock_out?new Date(s.clock_out).toLocaleTimeString(C.locale,{hour:'numeric',minute:'2-digit',timeZone:C.timeZone}):'working'}</small></div><div><strong>${duration(s.duration_minutes*60000)}</strong><small>${money(s.earnings_cents)}</small></div></div>`).join(''):'<div class="empty">No shifts yet.</div>';tick()}
-function tick(){if(!data.activeShift)return;const ms=Date.now()-new Date(data.activeShift.clock_in).getTime();$('.liveTime').textContent=new Date(ms).toISOString().slice(11,19);$('.livePay').textContent=`${money(Math.round(ms/3600000*data.activeShift.hourly_rate_cents))} current shift`}
-setInterval(()=>{if(data.activeShift){tick();render()}},1000);
-$('.adminBtn').onclick=()=>token()? (sessionStorage.removeItem('clockAdminToken'),render()):$('#loginDialog').showModal();
-$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const x=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});sessionStorage.setItem('clockAdminToken',x.token);$('#password').value='';$('#loginError').textContent='';$('#loginDialog').close();await refresh()}catch(err){$('#loginError').textContent=err.message}});
-$('.clockBtn').onclick=async()=>{try{await api(data.activeShift?'/api/clock-out':'/api/clock-in',{method:'POST'});await refresh()}catch(e){alert(e.message)}};refresh();
+const C = window.CLOCK_CONFIG;
+const API = C.API_URL.replace(/\/$/, "");
+
+const $ = (selector) => document.querySelector(selector);
+
+let data = {
+  activeShift: null,
+  weekMinutes: 0,
+  weekEarningsCents: 0,
+  currentRateCents: 0,
+  recent: [],
+};
+
+
+// ========================================
+// AUTH
+// ========================================
+
+function getToken() {
+  return sessionStorage.getItem("clockAdminToken");
+}
+
+function isAdmin() {
+  return Boolean(getToken());
+}
+
+
+// ========================================
+// FORMATTING
+// ========================================
+
+function money(cents) {
+  return new Intl.NumberFormat(C.locale, {
+    style: "currency",
+    currency: C.currency
+  }).format((cents || 0) / 100);
+}
+
+function duration(milliseconds) {
+  const minutes = Math.max(
+    0,
+    Math.floor(milliseconds / 60000)
+  );
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return `${hours}h ${String(remainingMinutes).padStart(2, "0")}m`;
+}
+
+function calculateLiveEarnings(shift) {
+  if (!shift) {
+    return 0;
+  }
+
+  const milliseconds =
+    Date.now() - new Date(shift.clock_in).getTime();
+
+  return Math.round(
+    (milliseconds / 3600000) *
+    shift.hourly_rate_cents
+  );
+}
+
+
+// ========================================
+// API
+// ========================================
+
+async function api(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+
+  const token = getToken();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(
+    API + path,
+    {
+      ...options,
+      headers
+    }
+  );
+
+  let responseData;
+
+  try {
+    responseData = await response.json();
+  } catch {
+    responseData = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.error ||
+      `Request failed (${response.status})`
+    );
+  }
+
+  return responseData;
+}
+
+
+// ========================================
+// LOAD STATUS
+// ========================================
+
+async function refresh() {
+  try {
+    data = await api("/api/status");
+
+    render();
+  } catch (error) {
+    console.error("API error:", error);
+
+    $("#status").textContent = "API NOT CONNECTED";
+
+    $("#recent").innerHTML = `
+      <div class="empty">
+        Could not connect to the Cloudflare Worker.
+      </div>
+    `;
+  }
+}
+
+
+// ========================================
+// RENDER
+// ========================================
+
+function render() {
+  const active = data.activeShift;
+
+  // Status
+  $("#status").textContent =
+    active ? "CLOCKED IN" : "CLOCKED OUT";
+
+
+  // Current rate
+  $("#rate").textContent =
+    `${money(data.currentRateCents)}/hr`;
+
+
+  // Completed pay-week time
+  let totalMilliseconds =
+    (data.weekMinutes || 0) * 60000;
+
+
+  // Add current running shift
+  if (active) {
+    totalMilliseconds +=
+      Date.now() -
+      new Date(active.clock_in).getTime();
+  }
+
+
+  $("#weekHours").textContent =
+    duration(totalMilliseconds);
+
+
+  // Earnings
+  const currentShiftEarnings =
+    calculateLiveEarnings(active);
+
+  const totalWeekEarnings =
+    (data.weekEarningsCents || 0) +
+    currentShiftEarnings;
+
+  $("#weekPay").textContent =
+    money(totalWeekEarnings);
+
+
+  // Admin controls
+  $("#clockBtn").classList.toggle(
+    "hidden",
+    !isAdmin()
+  );
+
+  $("#publicHint").classList.toggle(
+    "hidden",
+    isAdmin()
+  );
+
+
+  if (isAdmin()) {
+    $("#adminBtn").textContent = "🔓";
+  } else {
+    $("#adminBtn").textContent = "🔒";
+  }
+
+
+  // Clock button
+  $("#clockBtn").textContent =
+    active ? "Clock Out" : "Clock In";
+
+
+  // Live timer
+  $("#liveBlock").classList.toggle(
+    "hidden",
+    !active
+  );
+
+
+  // Recent activity
+  renderRecent();
+
+  updateLiveDisplay();
+}
+
+
+// ========================================
+// RECENT SHIFTS
+// ========================================
+
+function renderRecent() {
+  const recent = data.recent || [];
+
+  if (!recent.length) {
+    $("#recent").innerHTML = `
+      <div class="empty">
+        No shifts yet.
+      </div>
+    `;
+
+    return;
+  }
+
+  $("#recent").innerHTML = recent
+    .map((shift) => {
+
+      const clockIn =
+        new Date(shift.clock_in);
+
+      const dateLabel =
+        clockIn.toLocaleDateString(
+          C.locale,
+          {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            timeZone: C.timeZone
+          }
+        );
+
+      const startTime =
+        clockIn.toLocaleTimeString(
+          C.locale,
+          {
+            hour: "numeric",
+            minute: "2-digit",
+            timeZone: C.timeZone
+          }
+        );
+
+      let endTime = "working";
+
+      if (shift.clock_out) {
+        endTime =
+          new Date(
+            shift.clock_out
+          ).toLocaleTimeString(
+            C.locale,
+            {
+              hour: "numeric",
+              minute: "2-digit",
+              timeZone: C.timeZone
+            }
+          );
+      }
+
+      let shiftDuration;
+      let earnings;
+
+      if (shift.clock_out) {
+
+        shiftDuration =
+          duration(
+            (shift.duration_minutes || 0) *
+            60000
+          );
+
+        earnings =
+          money(
+            shift.earnings_cents || 0
+          );
+
+      } else {
+
+        const milliseconds =
+          Date.now() -
+          new Date(
+            shift.clock_in
+          ).getTime();
+
+        shiftDuration =
+          duration(milliseconds);
+
+        earnings =
+          money(
+            calculateLiveEarnings(shift)
+          );
+      }
+
+
+      return `
+        <div class="row">
+
+          <div>
+            <strong>
+              ${dateLabel}
+            </strong>
+
+            <small>
+              ${startTime} → ${endTime}
+            </small>
+          </div>
+
+          <div>
+            <strong>
+              ${shiftDuration}
+            </strong>
+
+            <small>
+              ${earnings}
+            </small>
+          </div>
+
+        </div>
+      `;
+    })
+    .join("");
+}
+
+
+// ========================================
+// LIVE TIMER
+// ========================================
+
+function updateLiveDisplay() {
+  const active = data.activeShift;
+
+  if (!active) {
+    return;
+  }
+
+  const milliseconds =
+    Date.now() -
+    new Date(active.clock_in).getTime();
+
+  const totalSeconds =
+    Math.max(
+      0,
+      Math.floor(milliseconds / 1000)
+    );
+
+  const hours =
+    Math.floor(totalSeconds / 3600);
+
+  const minutes =
+    Math.floor(
+      (totalSeconds % 3600) / 60
+    );
+
+  const seconds =
+    totalSeconds % 60;
+
+
+  $("#liveTime").textContent =
+    `${String(hours).padStart(2, "0")}:` +
+    `${String(minutes).padStart(2, "0")}:` +
+    `${String(seconds).padStart(2, "0")}`;
+
+
+  $("#livePay").textContent =
+    `${money(
+      calculateLiveEarnings(active)
+    )} current shift`;
+}
+
+
+// ========================================
+// LIVE REFRESH
+// ========================================
+
+setInterval(() => {
+
+  if (!data.activeShift) {
+    return;
+  }
+
+  updateLiveDisplay();
+
+
+  // Update main earnings continuously
+  const currentShiftEarnings =
+    calculateLiveEarnings(
+      data.activeShift
+    );
+
+  $("#weekPay").textContent =
+    money(
+      (data.weekEarningsCents || 0) +
+      currentShiftEarnings
+    );
+
+
+  const currentMilliseconds =
+    Date.now() -
+    new Date(
+      data.activeShift.clock_in
+    ).getTime();
+
+  const totalMilliseconds =
+    ((data.weekMinutes || 0) * 60000) +
+    currentMilliseconds;
+
+  $("#weekHours").textContent =
+    duration(totalMilliseconds);
+
+}, 1000);
+
+
+// ========================================
+// ADMIN BUTTON
+// ========================================
+
+$("#adminBtn").addEventListener(
+  "click",
+  () => {
+
+    if (isAdmin()) {
+
+      // Clicking unlocked icon logs out
+      sessionStorage.removeItem(
+        "clockAdminToken"
+      );
+
+      render();
+
+      return;
+    }
+
+
+    $("#loginError").textContent = "";
+
+    $("#loginDialog").showModal();
+
+    setTimeout(() => {
+      $("#password").focus();
+    }, 100);
+  }
+);
+
+
+// ========================================
+// LOGIN
+// ========================================
+
+$("#loginForm").addEventListener(
+  "submit",
+  async (event) => {
+
+    event.preventDefault();
+
+    const password =
+      $("#password").value;
+
+    if (!password) {
+      $("#loginError").textContent =
+        "Enter your password.";
+
+      return;
+    }
+
+
+    $("#loginSubmit").disabled = true;
+    $("#loginSubmit").textContent =
+      "Unlocking...";
+
+
+    try {
+
+      const result =
+        await api(
+          "/api/login",
+          {
+            method: "POST",
+
+            body: JSON.stringify({
+              password
+            })
+          }
+        );
+
+
+      sessionStorage.setItem(
+        "clockAdminToken",
+        result.token
+      );
+
+
+      $("#password").value = "";
+      $("#loginError").textContent = "";
+
+      $("#loginDialog").close();
+
+      await refresh();
+
+
+    } catch (error) {
+
+      console.error(
+        "Login error:",
+        error
+      );
+
+      $("#loginError").textContent =
+        error.message;
+
+    } finally {
+
+      $("#loginSubmit").disabled = false;
+
+      $("#loginSubmit").textContent =
+        "Unlock";
+    }
+  }
+);
+
+
+// ========================================
+// CLOCK IN / CLOCK OUT
+// ========================================
+
+$("#clockBtn").addEventListener(
+  "click",
+  async () => {
+
+    if (!isAdmin()) {
+      return;
+    }
+
+
+    const button = $("#clockBtn");
+
+    button.disabled = true;
+
+
+    try {
+
+      if (data.activeShift) {
+
+        button.textContent =
+          "Clocking out...";
+
+        await api(
+          "/api/clock-out",
+          {
+            method: "POST"
+          }
+        );
+
+      } else {
+
+        button.textContent =
+          "Clocking in...";
+
+        await api(
+          "/api/clock-in",
+          {
+            method: "POST"
+          }
+        );
+      }
+
+
+      await refresh();
+
+
+    } catch (error) {
+
+      console.error(
+        "Clock error:",
+        error
+      );
+
+      alert(error.message);
+
+      // If token expired
+      if (
+        error.message === "Unauthorized"
+      ) {
+        sessionStorage.removeItem(
+          "clockAdminToken"
+        );
+
+        render();
+      }
+
+    } finally {
+
+      button.disabled = false;
+    }
+  }
+);
+
+
+// ========================================
+// START APP
+// ========================================
+
+refresh();
