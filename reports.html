@@ -4,5 +4,9 @@
 <header><a class="back" href="index.html">← Clock</a><h1>Reports</h1><span></span></header>
 <div class="tabs" role="tablist"><button data-period="day">Day</button><button data-period="week" class="active">Week</button><button data-period="month">Month</button><button data-period="year">Year</button></div>
 <section class="card report-summary"><div class="label" id="periodTitle">THIS WEEK</div><div class="summary-grid"><div><span>Hours</span><strong id="reportHours">0h 00m</strong></div><div><span>Earnings</span><strong id="reportPay">$0.00</strong></div><div><span>Avg. rate</span><strong id="avgRate">$0.00/hr</strong></div><div><span>Shifts</span><strong id="shiftCount">0</strong></div></div></section>
-<section class="section"><div class="section-head"><h2>Breakdown</h2></div><div id="breakdown" class="list"><div class="empty">No data yet.</div></div></section>
+<button id="exportCsvBtn" class="secondary">
+  Export CSV
+</button>
+  <section class="section"><div class="section-head"><h2>Breakdown</h2></div><div id="breakdown" class="list"><div class="empty">No data yet.</div></div></section>
+
 </main><script src="config.js"></script><script src="reports.js"></script></body></html>
