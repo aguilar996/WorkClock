@@ -8,85 +8,173 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="shell">
-  <header><div><div class="eyebrow">TIME TRACKER</div><h1>Clock</h1></div><button id="adminBtn" class="icon-btn" aria-label="Admin access">🔒</button></header>
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">TIME TRACKER</div>
+        <h1>Clock</h1>
+      </div>
 
-  <section class="hero card">
-    <div id="status" class="status">CLOCKED OUT</div>
-    <div class="label">THIS PAY WEEK</div>
-    <div id="weekHours" class="hours">0h 00m</div>
-    <div id="weekPay" class="money">$0.00</div>
-    <div id="rate" class="muted">$00.00/hr</div>
-    <div id="liveBlock" class="live hidden"><span id="liveTime">00:00:00</span><span id="livePay">$0.00 today</span></div>
-    <button id="clockBtn" class="primary hidden">Clock In</button>
-    <div id="active-clock-editor" class="active-clock-editor" hidden>
-  <label for="active-clock-in">
-    Clock-in time
-  </label>
+      <button
+        id="adminBtn"
+        class="icon-btn"
+        type="button"
+        aria-label="Admin access"
+      >
+        🔒
+      </button>
+    </header>
 
-  <input
-    id="active-clock-in"
-    type="datetime-local"
-  >
+    <section class="hero card">
+      <div id="status" class="status">CLOCKED OUT</div>
+      <div class="label">THIS PAY WEEK</div>
+      <div id="weekHours" class="hours">0h 00m</div>
+      <div id="weekPay" class="money">$0.00</div>
+      <div id="rate" class="muted">$00.00/hr</div>
 
-  <button
-    id="save-active-clock-in"
-    type="button"
-  >
-    Save clock-in time
-  </button>
+      <div id="liveBlock" class="live hidden">
+        <span id="liveTime">00:00:00</span>
+        <span id="livePay">$0.00 current shift</span>
+      </div>
 
-  <p id="active-clock-message"></p>
-</div>
-    <div id="publicHint" class="hint">Public view · unlock to manage</div>
-  </section>
+      <button
+        id="clockBtn"
+        class="primary hidden"
+        type="button"
+      >
+        Clock In
+      </button>
 
-  <section class="section">
-   <div class="section-head">
-  <h2>Recent activity</h2>
+      <button
+        id="custom-clock-in-button"
+        class="secondary hidden"
+        type="button"
+      >
+        Forgot to clock in?
+      </button>
 
-<div class="header-links">
+      <div
+        id="custom-clock-in-panel"
+        class="clock-time-editor"
+        hidden
+      >
+        <label for="custom-clock-in-time">
+          Actual start time
+        </label>
 
-  <a href="settings.html">
-    Settings
-  </a>
+        <input
+          id="custom-clock-in-time"
+          type="datetime-local"
+        >
 
-  <a href="shifts.html">
-    Edit
-  </a>
+        <button
+          id="confirm-custom-clock-in"
+          class="secondary"
+          type="button"
+        >
+          Start shift at this time
+        </button>
 
-  <a href="reports.html">
-    Reports →
-  </a>
+        <p
+          id="custom-clock-message"
+          class="form-message"
+          aria-live="polite"
+        ></p>
+      </div>
 
-</div>
-</div>
-    <div id="recent" class="list"><div class="empty">No shifts yet.</div></div>
-  </section>
-</main>
+      <div
+        id="active-clock-editor"
+        class="active-clock-editor"
+        hidden
+      >
+        <label for="active-clock-in">
+          Clock-in time
+        </label>
 
-<dialog id="loginDialog">
- <form id="loginForm" class="dialog-card">
-    <h2>Admin access</h2><p>Unlock clock controls for this browser session.</p>
-    <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
-    <div id="loginError" class="error"></div>
- <div class="actions">
-  <button
-    id="loginCancel"
-    type="button"
-    class="secondary">
-    Cancel
-  </button>
+        <input
+          id="active-clock-in"
+          type="datetime-local"
+        >
 
-  <button
-    id="loginSubmit"
-    type="submit"
-    class="primary">
-    Unlock
-  </button>
-</div>
-  </form>
-</dialog>
+        <button
+          id="save-active-clock-in"
+          class="secondary"
+          type="button"
+        >
+          Save clock-in time
+        </button>
 
-<script src="config.js"></script><script src="app.js"></script>
-</body></html>
+        <p
+          id="active-clock-message"
+          class="form-message"
+          aria-live="polite"
+        ></p>
+      </div>
+
+      <div id="publicHint" class="hint">
+        Public view · unlock to manage
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Recent activity</h2>
+
+        <div class="header-links">
+          <a href="settings.html">Settings</a>
+          <a href="shifts.html">Edit</a>
+          <a href="reports.html">Reports →</a>
+        </div>
+      </div>
+
+      <div id="recent" class="list">
+        <div class="empty">No shifts yet.</div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="loginDialog">
+    <form id="loginForm" class="dialog-card">
+      <h2>Admin access</h2>
+      <p>Unlock clock controls for this browser session.</p>
+
+      <label>
+        Password
+        <input
+          id="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
+      </label>
+
+      <div
+        id="loginError"
+        class="error"
+        aria-live="polite"
+      ></div>
+
+      <div class="actions">
+        <button
+          id="loginCancel"
+          type="button"
+          class="secondary"
+        >
+          Cancel
+        </button>
+
+        <button
+          id="loginSubmit"
+          type="submit"
+          class="primary"
+        >
+          Unlock
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
