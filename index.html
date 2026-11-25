@@ -19,6 +19,25 @@
     <div id="rate" class="muted">$00.00/hr</div>
     <div id="liveBlock" class="live hidden"><span id="liveTime">00:00:00</span><span id="livePay">$0.00 today</span></div>
     <button id="clockBtn" class="primary hidden">Clock In</button>
+    <div id="active-clock-editor" class="active-clock-editor" hidden>
+  <label for="active-clock-in">
+    Clock-in time
+  </label>
+
+  <input
+    id="active-clock-in"
+    type="datetime-local"
+  >
+
+  <button
+    id="save-active-clock-in"
+    type="button"
+  >
+    Save clock-in time
+  </button>
+
+  <p id="active-clock-message"></p>
+</div>
     <div id="publicHint" class="hint">Public view · unlock to manage</div>
   </section>
 
