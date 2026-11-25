@@ -11,7 +11,6 @@ let data = {
   recent: [],
 };
 
-
 // ========================================
 // AUTH
 // ========================================
@@ -24,7 +23,6 @@ function isAdmin() {
   return Boolean(getToken());
 }
 
-
 // ========================================
 // FORMATTING
 // ========================================
@@ -32,7 +30,7 @@ function isAdmin() {
 function money(cents) {
   return new Intl.NumberFormat(C.locale, {
     style: "currency",
-    currency: C.currency
+    currency: C.currency,
   }).format((cents || 0) / 100);
 }
 
@@ -56,12 +54,57 @@ function calculateLiveEarnings(shift) {
   const milliseconds =
     Date.now() - new Date(shift.clock_in).getTime();
 
-  return Math.round(
-    (milliseconds / 3600000) *
-    shift.hourly_rate_cents
+  return Math.max(
+    0,
+    Math.round(
+      (milliseconds / 3600000) * shift.hourly_rate_cents
+    )
   );
 }
 
+function toDateTimeLocalValue(isoDate) {
+  if (!isoDate) {
+    return "";
+  }
+
+  const date = new Date(isoDate);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const pad = (value) =>
+    String(value).padStart(2, "0");
+
+  return (
+    [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate()),
+    ].join("-") +
+    "T" +
+    [
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+    ].join(":")
+  );
+}
+
+function getSelectedDateTime(selector) {
+  const input = $(selector);
+
+  if (!input || !input.value) {
+    return null;
+  }
+
+  const date = new Date(input.value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
 
 // ========================================
 // API
@@ -70,7 +113,7 @@ function calculateLiveEarnings(shift) {
 async function api(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
-    ...(options.headers || {})
+    ...(options.headers || {}),
   };
 
   const token = getToken();
@@ -79,13 +122,10 @@ async function api(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(
-    API + path,
-    {
-      ...options,
-      headers
-    }
-  );
+  const response = await fetch(API + path, {
+    ...options,
+    headers,
+  });
 
   let responseData;
 
@@ -105,6 +145,12 @@ async function api(path, options = {}) {
   return responseData;
 }
 
+function handleUnauthorized(error) {
+  if (error.message === "Unauthorized") {
+    sessionStorage.removeItem("clockAdminToken");
+    render();
+  }
+}
 
 // ========================================
 // LOAD STATUS
@@ -113,13 +159,11 @@ async function api(path, options = {}) {
 async function refresh() {
   try {
     data = await api("/api/status");
-
     render();
   } catch (error) {
     console.error("API error:", error);
 
     $("#status").textContent = "API NOT CONNECTED";
-
     $("#recent").innerHTML = `
       <div class="empty">
         Could not connect to the Cloudflare Worker.
@@ -128,6 +172,60 @@ async function refresh() {
   }
 }
 
+// ========================================
+// OPTIONAL CUSTOM CLOCK UI
+// ========================================
+
+function renderCustomClockControls() {
+  const activeEditor = $("#active-clock-editor");
+  const activeInput = $("#active-clock-in");
+  const customPanel = $("#custom-clock-in-panel");
+  const customButton = $("#custom-clock-in-button");
+
+  if (!isAdmin()) {
+    if (activeEditor) {
+      activeEditor.hidden = true;
+    }
+
+    if (customPanel) {
+      customPanel.hidden = true;
+    }
+
+    if (customButton) {
+      customButton.classList.add("hidden");
+    }
+
+    return;
+  }
+
+  if (data.activeShift) {
+    if (activeEditor) {
+      activeEditor.hidden = false;
+    }
+
+    if (activeInput) {
+      activeInput.value = toDateTimeLocalValue(
+        data.activeShift.clock_in
+      );
+    }
+
+    if (customPanel) {
+      customPanel.hidden = true;
+    }
+
+    if (customButton) {
+      customButton.classList.add("hidden");
+    }
+  } else {
+    if (activeEditor) {
+      activeEditor.hidden = true;
+    }
+
+    if (customButton) {
+      customButton.classList.remove("hidden");
+    }
+  }
+}
 
 // ========================================
 // RENDER
@@ -136,34 +234,25 @@ async function refresh() {
 function render() {
   const active = data.activeShift;
 
-  // Status
   $("#status").textContent =
     active ? "CLOCKED IN" : "CLOCKED OUT";
 
-
-  // Current rate
   $("#rate").textContent =
     `${money(data.currentRateCents)}/hr`;
 
-
-  // Completed pay-week time
   let totalMilliseconds =
     (data.weekMinutes || 0) * 60000;
 
-
-  // Add current running shift
   if (active) {
-    totalMilliseconds +=
-      Date.now() -
-      new Date(active.clock_in).getTime();
+    totalMilliseconds += Math.max(
+      0,
+      Date.now() - new Date(active.clock_in).getTime()
+    );
   }
-
 
   $("#weekHours").textContent =
     duration(totalMilliseconds);
 
-
-  // Earnings
   const currentShiftEarnings =
     calculateLiveEarnings(active);
 
@@ -174,8 +263,6 @@ function render() {
   $("#weekPay").textContent =
     money(totalWeekEarnings);
 
-
-  // Admin controls
   $("#clockBtn").classList.toggle(
     "hidden",
     !isAdmin()
@@ -186,32 +273,24 @@ function render() {
     isAdmin()
   );
 
-
   if (isAdmin()) {
     $("#adminBtn").textContent = "🔓";
   } else {
     $("#adminBtn").textContent = "🔒";
   }
 
-
-  // Clock button
   $("#clockBtn").textContent =
     active ? "Clock Out" : "Clock In";
 
-
-  // Live timer
   $("#liveBlock").classList.toggle(
     "hidden",
     !active
   );
 
-
-  // Recent activity
   renderRecent();
-
+  renderCustomClockControls();
   updateLiveDisplay();
 }
-
 
 // ========================================
 // RECENT SHIFTS
@@ -226,116 +305,84 @@ function renderRecent() {
         No shifts yet.
       </div>
     `;
-
     return;
   }
 
   $("#recent").innerHTML = recent
     .map((shift) => {
+      const clockIn = new Date(shift.clock_in);
 
-      const clockIn =
-        new Date(shift.clock_in);
+      const dateLabel = clockIn.toLocaleDateString(
+        C.locale,
+        {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          timeZone: C.timeZone,
+        }
+      );
 
-      const dateLabel =
-        clockIn.toLocaleDateString(
-          C.locale,
-          {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            timeZone: C.timeZone
-          }
-        );
-
-      const startTime =
-        clockIn.toLocaleTimeString(
-          C.locale,
-          {
-            hour: "numeric",
-            minute: "2-digit",
-            timeZone: C.timeZone
-          }
-        );
+      const startTime = clockIn.toLocaleTimeString(
+        C.locale,
+        {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: C.timeZone,
+        }
+      );
 
       let endTime = "working";
 
       if (shift.clock_out) {
-        endTime =
-          new Date(
-            shift.clock_out
-          ).toLocaleTimeString(
-            C.locale,
-            {
-              hour: "numeric",
-              minute: "2-digit",
-              timeZone: C.timeZone
-            }
-          );
+        endTime = new Date(
+          shift.clock_out
+        ).toLocaleTimeString(C.locale, {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: C.timeZone,
+        });
       }
 
       let shiftDuration;
       let earnings;
 
       if (shift.clock_out) {
+        shiftDuration = duration(
+          (shift.duration_minutes || 0) * 60000
+        );
 
-        shiftDuration =
-          duration(
-            (shift.duration_minutes || 0) *
-            60000
-          );
-
-        earnings =
-          money(
-            shift.earnings_cents || 0
-          );
-
+        earnings = money(
+          shift.earnings_cents || 0
+        );
       } else {
-
-        const milliseconds =
+        const milliseconds = Math.max(
+          0,
           Date.now() -
-          new Date(
-            shift.clock_in
-          ).getTime();
+            new Date(shift.clock_in).getTime()
+        );
 
-        shiftDuration =
-          duration(milliseconds);
-
-        earnings =
-          money(
-            calculateLiveEarnings(shift)
-          );
+        shiftDuration = duration(milliseconds);
+        earnings = money(
+          calculateLiveEarnings(shift)
+        );
       }
-
 
       return `
         <div class="row">
-
           <div>
-            <strong>
-              ${dateLabel}
-            </strong>
-
-            <small>
-              ${startTime} → ${endTime}
-            </small>
+            <strong>${dateLabel}</strong>
+            <small>${startTime} → ${endTime}</small>
           </div>
 
           <div>
-            <strong>
-              ${shiftDuration}
-            </strong>
-
-            <small>
-              ${earnings}
-            </small>
+            <strong>${shiftDuration}</strong>
+            <small>${earnings}</small>
           </div>
-
         </div>
       `;
     })
     .join("");
 }
-
 
 // ========================================
 // LIVE TIMER
@@ -348,72 +395,55 @@ function updateLiveDisplay() {
     return;
   }
 
-  const milliseconds =
-    Date.now() -
-    new Date(active.clock_in).getTime();
+  const milliseconds = Math.max(
+    0,
+    Date.now() - new Date(active.clock_in).getTime()
+  );
 
-  const totalSeconds =
-    Math.max(
-      0,
-      Math.floor(milliseconds / 1000)
-    );
+  const totalSeconds = Math.max(
+    0,
+    Math.floor(milliseconds / 1000)
+  );
 
-  const hours =
-    Math.floor(totalSeconds / 3600);
-
-  const minutes =
-    Math.floor(
-      (totalSeconds % 3600) / 60
-    );
-
-  const seconds =
-    totalSeconds % 60;
-
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60
+  );
+  const seconds = totalSeconds % 60;
 
   $("#liveTime").textContent =
     `${String(hours).padStart(2, "0")}:` +
     `${String(minutes).padStart(2, "0")}:` +
     `${String(seconds).padStart(2, "0")}`;
 
-
   $("#livePay").textContent =
-    `${money(
-      calculateLiveEarnings(active)
-    )} current shift`;
+    `${money(calculateLiveEarnings(active))} current shift`;
 }
-
 
 // ========================================
 // LIVE REFRESH
 // ========================================
 
 setInterval(() => {
-
   if (!data.activeShift) {
     return;
   }
 
   updateLiveDisplay();
 
-
-  // Update main earnings continuously
   const currentShiftEarnings =
-    calculateLiveEarnings(
-      data.activeShift
-    );
+    calculateLiveEarnings(data.activeShift);
 
-  $("#weekPay").textContent =
-    money(
-      (data.weekEarningsCents || 0) +
+  $("#weekPay").textContent = money(
+    (data.weekEarningsCents || 0) +
       currentShiftEarnings
-    );
+  );
 
-
-  const currentMilliseconds =
+  const currentMilliseconds = Math.max(
+    0,
     Date.now() -
-    new Date(
-      data.activeShift.clock_in
-    ).getTime();
+      new Date(data.activeShift.clock_in).getTime()
+  );
 
   const totalMilliseconds =
     ((data.weekMinutes || 0) * 60000) +
@@ -421,9 +451,7 @@ setInterval(() => {
 
   $("#weekHours").textContent =
     duration(totalMilliseconds);
-
 }, 1000);
-
 
 // ========================================
 // ADMIN BUTTON
@@ -432,22 +460,13 @@ setInterval(() => {
 $("#adminBtn").addEventListener(
   "click",
   () => {
-
     if (isAdmin()) {
-
-      // Clicking unlocked icon logs out
-      sessionStorage.removeItem(
-        "clockAdminToken"
-      );
-
+      sessionStorage.removeItem("clockAdminToken");
       render();
-
       return;
     }
 
-
     $("#loginError").textContent = "";
-
     $("#loginDialog").showModal();
 
     setTimeout(() => {
@@ -464,6 +483,7 @@ $("#loginCancel").addEventListener(
     $("#loginDialog").close();
   }
 );
+
 // ========================================
 // LOGIN
 // ========================================
@@ -471,172 +491,286 @@ $("#loginCancel").addEventListener(
 $("#loginForm").addEventListener(
   "submit",
   async (event) => {
-
     event.preventDefault();
 
-    const password =
-      $("#password").value;
+    const password = $("#password").value;
 
     if (!password) {
       $("#loginError").textContent =
         "Enter your password.";
-
       return;
     }
-
 
     $("#loginSubmit").disabled = true;
     $("#loginSubmit").textContent =
       "Unlocking...";
 
-
     try {
-
-      const result =
-        await api(
-          "/api/login",
-          {
-            method: "POST",
-
-            body: JSON.stringify({
-              password
-            })
-          }
-        );
-
+      const result = await api(
+        "/api/login",
+        {
+          method: "POST",
+          body: JSON.stringify({ password }),
+        }
+      );
 
       sessionStorage.setItem(
         "clockAdminToken",
         result.token
       );
 
-
       $("#password").value = "";
       $("#loginError").textContent = "";
-
       $("#loginDialog").close();
 
       await refresh();
-
-
     } catch (error) {
-
-      console.error(
-        "Login error:",
-        error
-      );
-
+      console.error("Login error:", error);
       $("#loginError").textContent =
         error.message;
-
     } finally {
-
       $("#loginSubmit").disabled = false;
-
       $("#loginSubmit").textContent =
         "Unlock";
     }
   }
 );
 
-
 // ========================================
-// CLOCK IN / CLOCK OUT
+// NORMAL CLOCK IN / CLOCK OUT
 // ========================================
 
 $("#clockBtn").addEventListener(
   "click",
   async () => {
-
     if (!isAdmin()) {
       return;
     }
 
-
     const button = $("#clockBtn");
-
     button.disabled = true;
 
-
     try {
-
       if (data.activeShift) {
+        button.textContent = "Clocking out...";
 
-        button.textContent =
-          "Clocking out...";
-
-        await api(
-          "/api/clock-out",
-          {
-            method: "POST"
-          }
-        );
-
+        await api("/api/clock-out", {
+          method: "POST",
+        });
       } else {
+        button.textContent = "Clocking in...";
 
-        button.textContent =
-          "Clocking in...";
-
-        await api(
-          "/api/clock-in",
-          {
-            method: "POST"
-          }
-        );
+        await api("/api/clock-in", {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
       }
-
 
       await refresh();
-
-
     } catch (error) {
-
-      console.error(
-        "Clock error:",
-        error
-      );
-
+      console.error("Clock error:", error);
       alert(error.message);
-
-      // If token expired
-      if (
-        error.message === "Unauthorized"
-      ) {
-        sessionStorage.removeItem(
-          "clockAdminToken"
-        );
-
-        render();
-      }
-
+      handleUnauthorized(error);
     } finally {
-
       button.disabled = false;
     }
   }
 );
 
-function toDateTimeLocalValue(isoDate) {
-  if (!isoDate) {
-    return "";
-  }
+// ========================================
+// FORGOT TO CLOCK IN
+// These controls are optional until the
+// matching HTML is added to index.html.
+// ========================================
 
-  const date = new Date(isoDate);
+const customClockButton =
+  $("#custom-clock-in-button");
 
-  const pad = (value) =>
-    String(value).padStart(2, "0");
+if (customClockButton) {
+  customClockButton.addEventListener(
+    "click",
+    () => {
+      if (!isAdmin() || data.activeShift) {
+        return;
+      }
 
-  return [
-    date.getFullYear(),
-    pad(date.getMonth() + 1),
-    pad(date.getDate()),
-  ].join("-") +
-    "T" +
-    [
-      pad(date.getHours()),
-      pad(date.getMinutes()),
-    ].join(":");
+      const panel = $("#custom-clock-in-panel");
+      const input = $("#custom-clock-in-time");
+      const message = $("#custom-clock-message");
+
+      if (!panel || !input) {
+        return;
+      }
+
+      panel.hidden = !panel.hidden;
+
+      if (!panel.hidden) {
+        input.value = toDateTimeLocalValue(
+          new Date().toISOString()
+        );
+
+        if (message) {
+          message.textContent = "";
+        }
+
+        input.focus();
+      }
+    }
+  );
 }
+
+const confirmCustomClockButton =
+  $("#confirm-custom-clock-in");
+
+if (confirmCustomClockButton) {
+  confirmCustomClockButton.addEventListener(
+    "click",
+    async () => {
+      if (!isAdmin() || data.activeShift) {
+        return;
+      }
+
+      const message = $("#custom-clock-message");
+      const selectedDate = getSelectedDateTime(
+        "#custom-clock-in-time"
+      );
+
+      if (!selectedDate) {
+        if (message) {
+          message.textContent =
+            "Select a valid date and time.";
+        }
+        return;
+      }
+
+      if (selectedDate.getTime() > Date.now()) {
+        if (message) {
+          message.textContent =
+            "Clock-in cannot be in the future.";
+        }
+        return;
+      }
+
+      confirmCustomClockButton.disabled = true;
+
+      if (message) {
+        message.textContent = "Clocking in...";
+      }
+
+      try {
+        await api("/api/clock-in", {
+          method: "POST",
+          body: JSON.stringify({
+            clock_in: selectedDate.toISOString(),
+          }),
+        });
+
+        if (message) {
+          message.textContent = "Clocked in.";
+        }
+
+        await refresh();
+      } catch (error) {
+        console.error(
+          "Custom clock-in error:",
+          error
+        );
+
+        if (message) {
+          message.textContent = error.message;
+        } else {
+          alert(error.message);
+        }
+
+        handleUnauthorized(error);
+      } finally {
+        confirmCustomClockButton.disabled = false;
+      }
+    }
+  );
+}
+
+// ========================================
+// EDIT ACTIVE CLOCK-IN
+// These controls are optional until the
+// matching HTML is added to index.html.
+// ========================================
+
+const saveActiveClockButton =
+  $("#save-active-clock-in");
+
+if (saveActiveClockButton) {
+  saveActiveClockButton.addEventListener(
+    "click",
+    async () => {
+      if (!isAdmin() || !data.activeShift) {
+        return;
+      }
+
+      const message = $("#active-clock-message");
+      const selectedDate = getSelectedDateTime(
+        "#active-clock-in"
+      );
+
+      if (!selectedDate) {
+        if (message) {
+          message.textContent =
+            "Select a valid date and time.";
+        }
+        return;
+      }
+
+      if (selectedDate.getTime() > Date.now()) {
+        if (message) {
+          message.textContent =
+            "Clock-in cannot be in the future.";
+        }
+        return;
+      }
+
+      saveActiveClockButton.disabled = true;
+
+      if (message) {
+        message.textContent = "Saving...";
+      }
+
+      try {
+        await api(
+          "/api/active-shift/clock-in",
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              clock_in: selectedDate.toISOString(),
+            }),
+          }
+        );
+
+        if (message) {
+          message.textContent =
+            "Clock-in time updated.";
+        }
+
+        await refresh();
+      } catch (error) {
+        console.error(
+          "Active clock-in update error:",
+          error
+        );
+
+        if (message) {
+          message.textContent = error.message;
+        } else {
+          alert(error.message);
+        }
+
+        handleUnauthorized(error);
+      } finally {
+        saveActiveClockButton.disabled = false;
+      }
+    }
+  );
+}
+
 // ========================================
 // START APP
 // ========================================
